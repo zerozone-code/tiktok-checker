@@ -3,16 +3,25 @@ import mongoose from "mongoose";
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env",
-  );
+  throw new Error("Please define MONGODB_URI");
 }
 
-let cached = global.mongoose;
+type MongooseCache = {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+};
 
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+// Tell TypeScript about the global property
+declare global {
+  var mongooseCache: MongooseCache | undefined;
 }
+
+const cached =
+  globalThis.mongooseCache ??
+  (globalThis.mongooseCache = {
+    conn: null,
+    promise: null,
+  });
 
 async function dbConnect() {
   if (cached.conn) {
@@ -20,16 +29,13 @@ async function dbConnect() {
   }
 
   if (!cached.promise) {
-    const opts = {
+    cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
     });
   }
 
   cached.conn = await cached.promise;
+
   return cached.conn;
 }
 
